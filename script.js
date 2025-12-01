@@ -196,10 +196,19 @@ function handleApprovalChange(e) {
   updateProgress();
 }
 
-// Handle comment change
+// Handle comment change (save comment)
 function handleCommentChange(e) {
-  const itemId = e.target.dataset.id;
-  console.log(`Comment updated for item ${itemId}:`, e.target.value);
+  const itemId = Number(e.target.dataset.id);
+
+  // Search all 3 categories for this item
+  ["photos", "shortVideos", "longVideos"].forEach((category) => {
+    const item = items[category].find((i) => i.id === itemId);
+    if (item) {
+      item.comment = e.target.value.trim(); // Save comment text
+    }
+  });
+
+  saveData();
 }
 
 // Update progress indicator
@@ -246,8 +255,14 @@ const adminToggle = document.getElementById("adminToggle");
 const modalClose = document.querySelector(".modal-close");
 
 adminToggle.addEventListener("click", () => {
-  adminModal.classList.add("active");
-  renderAdminItems();
+  const pass = prompt("Enter Admin Password:");
+
+  if (pass === "samitech97") {
+    adminModal.classList.add("active");
+    renderAdminItems();
+  } else {
+    alert("❌ Incorrect password!");
+  }
 });
 
 modalClose.addEventListener("click", () => {
