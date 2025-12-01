@@ -38,57 +38,55 @@ let items = {
   longVideos: [],
 };
 
-let itemIdCounter = 0;
+// Load data from Supabase
+async function loadData() {
+  try {
+    const { data, error } = await supabase
+      .from("client_deliverables")
+      .select("*")
+      .order("created_at", { ascending: true });
 
-// Load data from memory
-function loadData() {
-  const savedData = {
-    photos: [
-      {
-        id: 1,
-        title: "Feed Image 01",
-        url: "https://drive.google.com/file/d/example1",
-        status: "pending",
-        timestamp: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        title: "Story Image 01",
-        url: "https://drive.google.com/file/d/example2",
-        status: "pending",
-        timestamp: new Date().toISOString(),
-      },
-    ],
-    shortVideos: [
-      {
-        id: 3,
-        title: "Reel Video 01",
-        url: "https://drive.google.com/file/d/example3",
-        status: "uploaded",
-        duration: "0:28",
-        timestamp: new Date().toISOString(),
-      },
-    ],
-    longVideos: [
-      {
-        id: 4,
-        title: "Promo Video",
-        url: "https://drive.google.com/file/d/example4",
-        status: "rendering",
-        duration: "1:05",
-        progress: 75,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  };
+    if (error) throw error;
 
-  items = savedData;
-  itemIdCounter = 4;
+    // Clear existing items
+    items = {
+      photos: [],
+      shortVideos: [],
+      longVideos: [],
+    };
+
+    // Organize items by category
+    if (data && data.length > 0) {
+      data.forEach((item) => {
+        const formattedItem = {
+          id: item.id,
+          title: item.title,
+          url: item.url,
+          status: item.status,
+          duration: item.duration,
+          progress: item.progress,
+          comment: item.comment,
+          isApproved: item.is_approved,
+          timestamp: item.created_at,
+        };
+
+        if (item.category === "photos") {
+          items.photos.push(formattedItem);
+        } else if (item.category === "shortVideos") {
+          items.shortVideos.push(formattedItem);
+        } else if (item.category === "longVideos") {
+          items.longVideos.push(formattedItem);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error loading deliverables:", error);
+  }
 }
 
-// Save data to memory
+// Save data to Supabase (not needed anymore, direct operations)
 function saveData() {
-  console.log("Data saved:", items);
+  console.log("Data is automatically saved to Supabase");
 }
 
 // Create item HTML
@@ -172,7 +170,7 @@ function createItemHTML(item, category) {
 }
 
 // Render all items
-function renderItems() {
+async function renderItems() {
   const photosGrid = document.getElementById("photosGrid");
   const shortVideosGrid = document.getElementById("shortVideosGrid");
   const longVideosGrid = document.getElementById("longVideosGrid");
@@ -189,6 +187,9 @@ function renderItems() {
 
   attachEventListeners();
   updateProgress();
+
+  // Restore approval states
+  restoreApprovalStates();
 }
 
 // Attach event listeners to dynamically created elements
@@ -204,10 +205,51 @@ function attachEventListeners() {
   });
 }
 
+// Restore approval states and comments
+function restoreApprovalStates() {
+  const allCategories = ["photos", "shortVideos", "longVideos"];
+
+  allCategories.forEach((category) => {
+    items[category].forEach((item) => {
+      const checkbox = document.querySelector(
+        `.approve-checkbox[data-id="${item.id}"]`
+      );
+      const commentBox = document.querySelector(
+        `.comment-box[data-id="${item.id}"]`
+      );
+      const itemElement = document.querySelector(`.item[data-id="${item.id}"]`);
+
+      if (checkbox && item.isApproved) {
+        checkbox.checked = true;
+        if (itemElement) {
+          itemElement.classList.add("approved");
+          const badge = itemElement.querySelector(".badge");
+          if (badge) {
+            badge.classList.remove(
+              "badge-pending",
+              "badge-uploaded",
+              "badge-rendering"
+            );
+            badge.classList.add("badge-approved");
+            badge.textContent = "Approved";
+          }
+        }
+      }
+
+      if (commentBox && item.comment) {
+        commentBox.value = item.comment;
+      }
+    });
+  });
+
+  updateProgress();
+}
+
 // Handle approval change
-function handleApprovalChange(e) {
+async function handleApprovalChange(e) {
   const itemElement = e.target.closest(".item");
   const badge = itemElement.querySelector(".badge");
+  const itemId = Number(e.target.dataset.id);
 
   if (e.target.checked) {
     itemElement.classList.add("approved");
@@ -225,21 +267,53 @@ function handleApprovalChange(e) {
     badge.textContent = "Pending";
   }
 
+  // Update in database
+  try {
+    const { error } = await supabase
+      .from("client_deliverables")
+      .update({ is_approved: e.target.checked })
+      .eq("id", itemId);
+
+    if (error) throw error;
+
+    // Update local data
+    ["photos", "shortVideos", "longVideos"].forEach((category) => {
+      const item = items[category].find((i) => i.id === itemId);
+      if (item) {
+        item.isApproved = e.target.checked;
+      }
+    });
+  } catch (error) {
+    console.error("Error updating approval:", error);
+  }
+
   updateProgress();
 }
 
 // Handle comment change (save comment)
-function handleCommentChange(e) {
+async function handleCommentChange(e) {
   const itemId = Number(e.target.dataset.id);
+  const comment = e.target.value.trim();
 
-  ["photos", "shortVideos", "longVideos"].forEach((category) => {
-    const item = items[category].find((i) => i.id === itemId);
-    if (item) {
-      item.comment = e.target.value.trim();
-    }
-  });
+  // Update in database
+  try {
+    const { error } = await supabase
+      .from("client_deliverables")
+      .update({ comment: comment })
+      .eq("id", itemId);
 
-  saveData();
+    if (error) throw error;
+
+    // Update local data
+    ["photos", "shortVideos", "longVideos"].forEach((category) => {
+      const item = items[category].find((i) => i.id === itemId);
+      if (item) {
+        item.comment = comment;
+      }
+    });
+  } catch (error) {
+    console.error("Error updating comment:", error);
+  }
 }
 
 // Update progress indicator
@@ -322,7 +396,7 @@ categorySelect.addEventListener("change", () => {
 // Add Item Form
 const addItemForm = document.getElementById("addItemForm");
 
-addItemForm.addEventListener("submit", (e) => {
+addItemForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const category = document.getElementById("categorySelect").value;
@@ -331,14 +405,11 @@ addItemForm.addEventListener("submit", (e) => {
   const status = document.getElementById("itemStatus").value;
   const duration = document.getElementById("itemDuration").value;
 
-  itemIdCounter++;
-
   const newItem = {
-    id: itemIdCounter,
     title: title,
     url: url,
     status: status,
-    timestamp: new Date().toISOString(),
+    category: category,
   };
 
   if (category !== "photos" && duration) {
@@ -349,15 +420,37 @@ addItemForm.addEventListener("submit", (e) => {
     newItem.progress = Math.floor(Math.random() * 100);
   }
 
-  items[category].push(newItem);
-  saveData();
-  renderItems();
-  renderAdminItems();
+  try {
+    const { data, error } = await supabase
+      .from("client_deliverables")
+      .insert([newItem])
+      .select();
 
-  addItemForm.reset();
-  durationGroup.style.display = "none";
+    if (error) throw error;
 
-  alert("✅ Item added successfully!");
+    // Add to local items
+    const formattedItem = {
+      id: data[0].id,
+      title: data[0].title,
+      url: data[0].url,
+      status: data[0].status,
+      duration: data[0].duration,
+      progress: data[0].progress,
+      timestamp: data[0].created_at,
+    };
+
+    items[category].push(formattedItem);
+    await renderItems();
+    renderAdminItems();
+
+    addItemForm.reset();
+    durationGroup.style.display = "none";
+
+    alert("✅ Item added successfully!");
+  } catch (error) {
+    console.error("Error adding item:", error);
+    alert("❌ Failed to add item. Please try again.");
+  }
 });
 
 // Render admin items list
@@ -414,17 +507,30 @@ function renderAdminItems() {
 }
 
 // Delete Item
-window.deleteItem = function (id, category) {
+window.deleteItem = async function (id, category) {
   if (confirm("Are you sure you want to delete this item?")) {
-    items[category] = items[category].filter((item) => item.id !== id);
-    saveData();
-    renderItems();
-    renderAdminItems();
+    try {
+      const { error } = await supabase
+        .from("client_deliverables")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      items[category] = items[category].filter((item) => item.id !== id);
+      await renderItems();
+      renderAdminItems();
+
+      alert("✅ Item deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      alert("❌ Failed to delete item. Please try again.");
+    }
   }
 };
 
 // Edit Item
-window.editItem = function (id, category) {
+window.editItem = async function (id, category) {
   const item = items[category].find((i) => i.id === id);
   if (!item) return;
 
@@ -438,14 +544,26 @@ window.editItem = function (id, category) {
     document.getElementById("itemDuration").value = item.duration;
   }
 
-  items[category] = items[category].filter((i) => i.id !== id);
-  saveData();
-  renderItems();
-  renderAdminItems();
+  // Delete from database
+  try {
+    const { error } = await supabase
+      .from("client_deliverables")
+      .delete()
+      .eq("id", id);
 
-  alert(
-    'ℹ️ Item loaded for editing. Update the fields and click "Add Item" to save.'
-  );
+    if (error) throw error;
+
+    items[category] = items[category].filter((i) => i.id !== id);
+    await renderItems();
+    renderAdminItems();
+
+    alert(
+      'ℹ️ Item loaded for editing. Update the fields and click "Add Item" to save.'
+    );
+  } catch (error) {
+    console.error("Error editing item:", error);
+    alert("❌ Failed to load item for editing. Please try again.");
+  }
 };
 
 // Approve All in Section
@@ -747,9 +865,32 @@ async function initializeChat() {
   subscribeToMessages();
 }
 
+// Subscribe to real-time deliverables changes
+function subscribeToDeliverables() {
+  const deliverablesChannel = supabase
+    .channel("client_deliverables")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "client_deliverables",
+      },
+      async (payload) => {
+        console.log("Deliverable change detected:", payload);
+        // Reload all data to sync
+        await loadData();
+        await renderItems();
+        renderAdminItems();
+      }
+    )
+    .subscribe();
+}
+
 // Initialize on load
-document.addEventListener("DOMContentLoaded", () => {
-  loadData();
-  renderItems();
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadData();
+  await renderItems();
   initializeChat();
+  subscribeToDeliverables();
 });
