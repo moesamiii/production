@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Client Delivery Portal</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <!-- Admin Panel Modal -->
+    <div id="adminModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i class="fas fa-cog"></i> Team Admin Panel</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="admin-section">
+            <h3><i class="fas fa-plus-circle"></i> Add New Deliverable</h3>
+            <form id="addItemForm">
+              <div class="form-group">
+                <label>Category</label>
+                <select id="categorySelect" required>
+                  <option value="photos">Pictures</option>
+                  <option value="shortVideos">Short Videos</option>
+                  <option value="longVideos">Long Videos</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  id="itemTitle"
+                  placeholder="e.g., Feed Image 03"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label>Google Drive URL</label>
+                <input
+                  type="url"
+                  id="itemUrl"
+                  placeholder="https://drive.google.com/..."
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label>Status</label>
+                <select id="itemStatus">
+                  <option value="pending">Pending</option>
+                  <option value="uploaded">Uploaded</option>
+                  <option value="rendering">Rendering</option>
+                </select>
+              </div>
+              <div class="form-group" id="durationGroup" style="display: none">
+                <label>Duration (for videos)</label>
+                <input type="text" id="itemDuration" placeholder="e.g., 0:28" />
+              </div>
+              <button type="submit" class="btn">
+                <i class="fas fa-plus"></i> Add Item
+              </button>
+            </form>
+          </div>
+
+          <div class="admin-section">
+            <h3><i class="fas fa-trash-alt"></i> Manage Items</h3>
+            <div id="itemsList" class="items-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header>
+      <div class="header-content">
+        <h1><i class="fas fa-film"></i> Client Delivery Portal</h1>
+      </div>
+      <div class="header-actions">
+        <div class="progress-indicator">
+          <i class="fas fa-check-circle"></i>
+          <span id="progressText">0/0 Approved</span>
+        </div>
+        <button id="adminToggle" class="btn-admin">
+          <i class="fas fa-user-cog"></i> Team Admin
+        </button>
+        <button id="modeToggle"><i class="fas fa-moon"></i></button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-target="photos">
+        <i class="fas fa-image"></i> Pictures
+      </button>
+      <button class="tab" data-target="shortVideos">
+        <i class="fas fa-video"></i> Short Videos
+      </button>
+      <button class="tab" data-target="longVideos">
+        <i class="fas fa-film"></i> Long Videos
+      </button>
+    </nav>
+
+    <div class="container">
+      <!-- Pictures Section -->
+      <section id="photos" class="content active">
+        <div class="section-header">
+          <h2><i class="fas fa-image"></i> Pictures (Feed + Story)</h2>
+          <button class="btn-secondary btn-approve-all" data-section="photos">
+            <i class="fas fa-check-double"></i> Approve All
+          </button>
+        </div>
+
+        <div class="grid" id="photosGrid">
+          <!-- Items will be dynamically added here -->
+        </div>
+      </section>
+
+      <!-- Short Videos Section -->
+      <section id="shortVideos" class="content">
+        <div class="section-header">
+          <h2><i class="fas fa-video"></i> Short Videos (15–30 seconds)</h2>
+          <button
+            class="btn-secondary btn-approve-all"
+            data-section="shortVideos"
+          >
+            <i class="fas fa-check-double"></i> Approve All
+          </button>
+        </div>
+
+        <div class="grid" id="shortVideosGrid">
+          <!-- Items will be dynamically added here -->
+        </div>
+      </section>
+
+      <!-- Long Videos Section -->
+      <section id="longVideos" class="content">
+        <div class="section-header">
+          <h2><i class="fas fa-film"></i> Long Videos (Promo 1 Minute)</h2>
+          <button
+            class="btn-secondary btn-approve-all"
+            data-section="longVideos"
+          >
+            <i class="fas fa-check-double"></i> Approve All
+          </button>
+        </div>
+
+        <div class="grid" id="longVideosGrid">
+          <!-- Items will be dynamically added here -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <h2>
+          <i class="fas fa-comment-dots"></i> Final Notes & Overall Feedback
+        </h2>
+        <textarea
+          class="final-notes"
+          placeholder="Share your overall thoughts, additional requests, or any final feedback..."
+        ></textarea>
+
+        <div class="footer-actions">
+          <button class="btn btn-submit">
+            <i class="fas fa-paper-plane"></i> Submit All Feedback
+          </button>
+          <button class="btn-secondary btn-download">
+            <i class="fas fa-download"></i> Download Report
+          </button>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
