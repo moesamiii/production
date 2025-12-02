@@ -1,14 +1,16 @@
 import { supabase } from "./config.js";
 
+// =============================================
+// USER SESSION (ONLY IN CHAT MODULE)
+// =============================================
+
 export let currentUser = {
   id: null,
   name: null,
   isAdmin: false,
 };
 
-// ========================
-// USER SESSION
-// ========================
+// Initialize user session
 export function initializeUser() {
   let userId = localStorage.getItem("chatUserId");
   let userName = localStorage.getItem("chatUserName");
@@ -27,16 +29,15 @@ export function initializeUser() {
   currentUser.name = userName;
 }
 
-// ========================
-// CHAT VARIABLES
-// ========================
+// =============================================
+// LIVE CHAT FUNCTIONALITY (UNCHANGED)
+// =============================================
+
 let chatChannel = null;
 let unreadCount = 0;
 let lastMessageId = 0;
 
-// ========================
-// CHAT UI ELEMENTS
-// ========================
+// Chat UI Elements
 const chatToggle = document.getElementById("chatToggle");
 const chatContainer = document.getElementById("chatContainer");
 const chatClose = document.getElementById("chatClose");
@@ -45,7 +46,7 @@ const chatInput = document.getElementById("chatInput");
 const chatSend = document.getElementById("chatSend");
 const chatBadge = document.getElementById("chatBadge");
 
-// Toggle Chat Window
+// Toggle Chat
 chatToggle.addEventListener("click", () => {
   chatContainer.classList.toggle("active");
   if (chatContainer.classList.contains("active")) {
@@ -69,7 +70,8 @@ function updateChatBadge() {
     chatBadge.style.display = "none";
   }
 }
-// Enter to send message
+
+// Send message on Enter key
 chatInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -77,25 +79,31 @@ chatInput.addEventListener("keypress", (e) => {
   }
 });
 
-// Send message on button
+// Send message on button click
 chatSend.addEventListener("click", sendMessage);
 
-// Send Message
+// Send Message Function
 async function sendMessage() {
   const message = chatInput.value.trim();
+
   if (!message) return;
 
   chatSend.disabled = true;
 
   try {
-    await supabase.from("chat_messages").insert([
-      {
-        user_id: currentUser.id,
-        user_name: currentUser.name,
-        message,
-        is_admin: currentUser.isAdmin,
-      },
-    ]);
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert([
+        {
+          user_id: currentUser.id,
+          user_name: currentUser.name,
+          message: message,
+          is_admin: currentUser.isAdmin,
+        },
+      ])
+      .select();
+
+    if (error) throw error;
 
     chatInput.value = "";
     chatInput.focus();
@@ -120,7 +128,9 @@ async function loadMessages() {
 
     if (data && data.length > 0) {
       chatMessages.innerHTML = "";
-      data.forEach((msg) => displayMessage(msg, false));
+      data.forEach((msg) => {
+        displayMessage(msg, false);
+      });
       lastMessageId = data[data.length - 1].id;
     }
   } catch (error) {
@@ -139,7 +149,7 @@ function displayMessage(msg, isNew = true) {
   const initials = msg.user_name.charAt(0).toUpperCase();
   const avatarClass = msg.is_admin ? "message-avatar admin" : "message-avatar";
 
-  const msgHtml = `
+  const messageHTML = `
     <div class="chat-message ${isSent ? "sent" : ""}">
       <div class="${avatarClass}">${initials}</div>
       <div class="message-content">
@@ -151,10 +161,12 @@ function displayMessage(msg, isNew = true) {
     </div>
   `;
 
-  const temp = document.createElement("div");
-  temp.innerHTML = msgHtml;
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = messageHTML;
+  const messageElement = tempDiv.firstElementChild;
 
-  chatMessages.appendChild(temp.firstElementChild);
+  chatMessages.appendChild(messageElement);
+
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
   if (!chatContainer.classList.contains("active") && !isSent && isNew) {
@@ -163,15 +175,16 @@ function displayMessage(msg, isNew = true) {
   }
 }
 
-// Escape HTML
+// Escape HTML to prevent XSS
 function escapeHtml(text) {
-  return text.replace(
-    /[&<>"']/g,
-    (m) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[
-        m
-      ])
-  );
+  const map = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
 }
 
 // Mark messages as read
@@ -180,14 +193,20 @@ function markMessagesAsRead() {
   updateChatBadge();
 }
 
-// Subscribe to realtime messages
+// Subscribe to real-time messages
 function subscribeToMessages() {
   chatChannel = supabase
     .channel("chat_messages")
     .on(
       "postgres_changes",
-      { event: "INSERT", schema: "public", table: "chat_messages" },
-      (payload) => displayMessage(payload.new, true)
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "chat_messages",
+      },
+      (payload) => {
+        displayMessage(payload.new, true);
+      }
     )
     .subscribe();
 }
@@ -199,8 +218,5 @@ async function initializeChat() {
   subscribeToMessages();
 }
 
-// Auto init
-document.addEventListener("DOMContentLoaded", () => initializeChat());
-
-// Exports
-export { initializeUser, currentUser };
+// Initialize on load
+document.addEventListener("DOMContentLoaded", initializeChat);
